@@ -37,6 +37,10 @@ class Row:
         return f"[{', '.join(map(str, _.vals))}]"
     def __getitem__(_, i):
         return _.vals[i]
+    def __eq__(_, other):
+        return all(map(lambda x: x[0] == x[1], zip(_.vals, other.vals)))
+    def __ne__(_, other):
+        return any(map(lambda x: x[0] != x[1]), zip(_.vals, other))
     def pivotIdx(_):
         for i, k in enumerate(_.vals):
             if k != 0: return i
@@ -89,7 +93,7 @@ class Matrix:
     def identity(n):
         ret = Matrix(n, n)
         for i in range(n):
-            ret.setRow(i, Row([1 if i == j else 0 for j in range(n)]))
+            ret.setRow(i, Row([1.0 if i == j else 0.0 for j in range(n)]))
         return ret
     def operation(_, o:Operation):
         if o.type == Operations.SWAP:
@@ -118,14 +122,28 @@ class Matrix:
             other.operation(o)
             ret = ret.multiply(other)
         return ret
-        
+    def getInverse(_, iterations=5):
+        if not _.isInversible(iterations):return -1
+        c = deepcopy(_)
+        for i in range(iterations):
+            c.GaussianElimination()
+        ret = Matrix.identity(c.height)
+        for o in c.operations:
+            ret.operation(o)
+        return ret
+    def isInversible(_, iterations = 5):
+        if _.height != _.length: return False
+        c = deepcopy(_)
+        for i in range(iterations):
+            c.GaussianElimination()
+        return c.vals == Matrix.identity(c.height).vals
 def dot(v1 ,v2): return sum(map(lambda x: x[0] * x[1], zip(v1, v2)))
 
 m = Matrix(3, 3)
-m.setRow(0, Row([1, 0, -1]))
-m.setRow(1, Row([-2, 3, -1]))
-m.setRow(2, Row([3, -3, 0]))
-e = m.getE()
+m.setRow(0, Row([1, 1, 1]))
+m.setRow(1, Row([0, 2, 3]))
+m.setRow(2, Row([3, 2, 2]))
+e = m.getInverse()
 print(m, "\n")
 print(e, "\n")
 print(e.multiply(m))
