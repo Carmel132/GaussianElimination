@@ -25,7 +25,7 @@ class Row:
         _.vals = _vals
     def __mul__(_, k:float):
         return Row([x * k for x in _.vals])
-    def __div__(_, k:float):
+    def __truediv__(_, k:float):
         return Row([x / k for x in _.vals])
     def __add__(_, right):
         return Row([i + j for i, j in zip(_.vals, right.vals)])
@@ -37,6 +37,8 @@ class Row:
         return f"[{', '.join(map(str, _.vals))}]"
     def __getitem__(_, i):
         return _.vals[i]
+    def __setitem__(_, i, v):
+        _.vals[i] = v
     def __eq__(_, other):
         return all(map(lambda x: x[0] == x[1], zip(_.vals, other.vals)))
     def __ne__(_, other):
@@ -61,7 +63,14 @@ class Matrix:
         _.vals = [Row([0] * length) for i in range(height)]
         _.operations = []
     def __repr__(_):
-        return "\n".join(map(str, _.vals))
+        ret = []
+        for i, row in enumerate(_.vals):
+            r = []
+            for j, v in enumerate(row.vals):
+                maxCharacters = len(str(max(_.getColumn(j).vals, key=lambda x:len(str(x)))))
+                r.append(" " * (maxCharacters - len(str(v))) + str(v))
+            ret.append( f"[{', '.join(r)}]" )
+        return "\n".join(ret)
     def swap(_, i1, i2):
         _.vals[i1], _.vals[i2] = _.vals[i2], _.vals[i1]
         _.operations.append(Operation(Operations.SWAP, i1, i2))
@@ -77,18 +86,30 @@ class Matrix:
         return _.vals[i]
     def order(_):
         _.vals = sorted(_.vals, key=lambda x: _.height + 1 if x.isZero() else x.pivotIdx())
-    def GaussianElimination(_):
-        for i in range(_.height):
-            if _.getRow(i).isZero():continue
-            _.scale(i, 1/_.getRow(i).pivot())
-            for j in range(i+1, _.height):
-                _.add(j, i, -_.getRow(j)[_.getRow(i).pivotIdx()])
-        _.order()
-        for i in reversed(range(1, _.height)):
-            if _.getRow(i).isZero():continue
-            _.scale(i, 1/_.getRow(i).pivot())
-            for j in reversed(range(i)):
-                _.add(j, i, -_.getRow(j)[_.getRow(i).pivotIdx()])
+    def RREF(_):
+        _.REF()
+        for i in range(min(_.height, _.length)):
+            r = _.getRow(i)
+            p = r.pivotIdx()
+            _.setRow(i, r / r.pivot())
+            for j in range(_.height):
+                if i == j: continue
+                _.add(j, i, -_.getRow(j)[p])
+    def REF(_):
+        h = 0
+        k = 0
+        while h < _.height and k < _.length:
+            i_max = max(range(h, _.height), key=lambda x: abs(_.vals[x][k]))
+            if _.vals[i_max][k] == 0: k = k+1
+            else:
+                _.swap(h, i_max)
+                for i in range(h + 1, _.height):
+                    f = _.vals[i][k] / _.vals[h][k]
+                    _.vals[i][k] = 0
+                    for j in range(k + 1, _.length):
+                        _.vals[i][j] = _.vals[i][j] - _.vals[h][j] * f
+                h = h + 1
+                k = k + 1
     @staticmethod 
     def identity(n):
         ret = Matrix(n, n)
@@ -115,7 +136,7 @@ class Matrix:
     def getE(_, iterations=5):
         c = deepcopy(_)
         for i in range(iterations):
-            c.GaussianElimination() #hopefully this works lmfao
+            c.RREF() #hopefully this works lmfao
         ret = Matrix.identity(c.height)
         for o in reversed(c.operations):
             other = Matrix.identity(c.height)
@@ -126,7 +147,7 @@ class Matrix:
         if not _.isInversible(iterations):return -1
         c = deepcopy(_)
         for i in range(iterations):
-            c.GaussianElimination()
+            c.RREF()
         ret = Matrix.identity(c.height)
         for o in c.operations:
             ret.operation(o)
@@ -135,15 +156,30 @@ class Matrix:
         if _.height != _.length: return False
         c = deepcopy(_)
         for i in range(iterations):
-            c.GaussianElimination()
+            c.RREF()
         return c.vals == Matrix.identity(c.height).vals
+    def round(_): # rounds to nearest 10^-16
+        for r in range(_.height):
+            for v in range(_.length):
+                _.vals[r][v] = round(_.vals[r][v], 16)
+    def getTransverse(_):
+        ret = Matrix(_.length, _.height)
+        for i in range(_.length):
+            c = _.getColumn(i)
+            c.vals = list(reversed(c.vals))
+            ret.setRow(i, c)
+        return ret
+    def getRightInverse(_):
+        return _.getTransverse().multiply((_.multiply(_.getTransverse())).getInverse())
+    def getLeftInverse(_):
+        return (_.getTransverse().multiply(_)).getInverse().multiply(_.getTransverse())
 def dot(v1 ,v2): return sum(map(lambda x: x[0] * x[1], zip(v1, v2)))
 
-m = Matrix(3, 3)
-m.setRow(0, Row([1, 1, 1]))
-m.setRow(1, Row([0, 2, 3]))
-m.setRow(2, Row([3, 2, 2]))
-e = m.getInverse()
-print(m, "\n")
-print(e, "\n")
-print(e.multiply(m))
+a = Matrix(3, 2)
+a.setRow(0, Row([1, 2]))
+a.setRow(1, Row([0, -1]))
+a.setRow(2, Row([1, 1]))
+a.RREF()
+#al = a.getLeftInverse()
+print(a)
+#print("\n", al.multiply(a))
