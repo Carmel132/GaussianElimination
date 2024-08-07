@@ -7,6 +7,64 @@ add the sum of a row onto another row
 '''
 from enum import Enum
 from copy import deepcopy
+from math import sqrt, floor, pow, log10
+
+
+class Frac:
+    def __init__(_, n, d=1, neg = False):
+        _.nu = int(abs(n))
+        _.de = int(abs(d))
+        _.negative = (n < 0 or d < 0) or neg
+        _.isZero = lambda: _.nu == 0
+        _.isInfinity = lambda: _.de == 0
+    def smpy(_):
+        if _.isZero(): _.de = 1
+        else:
+            i = min(_.nu, _.de)
+            while 2 <= i:
+                if _.nu % i == 0 and _.de % i == 0:
+                    _.nu = int(_.nu / i)
+                    _.de = int(_.de / i)
+                i -= 1
+        return _
+    @staticmethod
+    def fromFloat(f):
+        if type(f) is Frac: return f
+        count = 0
+        while f - floor(f) != 0:
+            f *= 10
+            count += 1
+        return Frac(f, pow(10, count)).smpy()
+    def flip(_):
+        return Frac(_.de, _.nu, _.negative)
+    def __repr__(_):
+        return f"{'-' if _.negative else ''}{_.nu}{f'/{_.de}' if _.de != 1 else ''}"
+    def __str__(_):
+        return f"{'-' if _.negative else ''}{_.nu}{f'/{_.de}' if _.de != 1 else ''}"
+    def __mul__(_, o):
+        return Frac(_.nu * o.nu, _.de * o.de, _.negative ^ o.negative).smpy()
+    def __truediv__(_, o):
+        return Frac(_.nu * o.de, _.de * o.nu, _.negative ^ o.negative).smpy()
+    def __add__(_, o):
+        return Frac(_.nu * o.de * (-1 if _.negative else 1) + o.nu * _.de * (-1 if o.negative else 1), _.de * o.de).smpy()
+    def __sub__(_, o):
+        return Frac(_.nu * o.de * (-1 if _.negative else 1) - o.nu * _.de * (-1 if o.negative else 1), _.de * o.de).smpy()
+    def __eq__(_, o):
+        return (_ - o).isZero()
+    def __neq__(_, o):
+        return not (_ - o).isZero()
+    def __lt__(_, o):
+        return (_ - o).negative and _ != o
+    def __gt__(_, o):
+        return not (_ - o).negative and _ != o
+    def __bool__(_):
+        return not _.isZero()
+    def __abs__(_):
+        return Frac(_.nu, _.de)
+    def __float__(_):
+        return _.nu / _.de * (-1 if _.negative else 1)
+    def __neg__(_):
+        return Frac(_.nu, _.de, not _.negative)
 class Operations(Enum):
     SWAP=0
     SCALE=1
@@ -22,10 +80,10 @@ class Operation:
         return f"[{_.type}, {_.x1}, {_.x2}, {_.x3}]"
 class Row:
     def __init__(_, _vals:list[float]):
-        _.vals = _vals
-    def __mul__(_, k:float):
+        _.vals = list(map(Frac.fromFloat, _vals))
+    def __mul__(_, k:Frac):
         return Row([x * k for x in _.vals])
-    def __truediv__(_, k:float):
+    def __truediv__(_, k:Frac):
         return Row([x / k for x in _.vals])
     def __add__(_, right):
         return Row([i + j for i, j in zip(_.vals, right.vals)])
@@ -43,14 +101,16 @@ class Row:
         return all(map(lambda x: x[0] == x[1], zip(_.vals, other.vals)))
     def __ne__(_, other):
         return any(map(lambda x: x[0] != x[1]), zip(_.vals, other))
+    def __len__(_):
+        return len(_.vals)
     def pivotIdx(_):
         for i, k in enumerate(_.vals):
-            if k != 0: return i
+            if not k.isZero(): return i
         return -1
     def pivot(_):
         for i in _.vals:
-            if i != 0:return i
-        return 0
+            if not i.isZero(): return i
+        return Frac(0)
     def isZero(_):
         return not any(_.vals)
     
@@ -84,30 +144,35 @@ class Matrix:
         _.vals[i] = row
     def getRow(_, i):
         return _.vals[i]
+    @staticmethod
+    def fromRows(rs):
+        ret = Matrix(len(rs), len(rs[0]))
+        for i, r in enumerate(rs):
+            ret.setRow(i, r)
+        return ret
     def order(_):
         _.vals = sorted(_.vals, key=lambda x: _.height + 1 if x.isZero() else x.pivotIdx())
     def RREF(_):
-        _.REF()
+        _.EF()
         for i in range(min(_.height, _.length)):
             r = _.getRow(i)
+            if r.isZero():continue
             p = r.pivotIdx()
-            _.setRow(i, r / r.pivot())
+            _.scale(i, r.pivot().flip())
             for j in range(_.height):
                 if i == j: continue
                 _.add(j, i, -_.getRow(j)[p])
-    def REF(_):
+    def EF(_):
         h = 0
         k = 0
         while h < _.height and k < _.length:
-            i_max = max(range(h, _.height), key=lambda x: abs(_.vals[x][k]))
-            if _.vals[i_max][k] == 0: k = k+1
+            i_max = max(range(h, _.height), key=lambda x: abs((_.vals[x][k])))
+            if _.vals[i_max][k].isZero(): 
+                k = k+1
             else:
                 _.swap(h, i_max)
                 for i in range(h + 1, _.height):
-                    f = _.vals[i][k] / _.vals[h][k]
-                    _.vals[i][k] = 0
-                    for j in range(k + 1, _.length):
-                        _.vals[i][j] = _.vals[i][j] - _.vals[h][j] * f
+                    _.add(i, h,  -_.vals[i][k] / _.vals[h][k])
                 h = h + 1
                 k = k + 1
     @staticmethod 
@@ -133,15 +198,15 @@ class Matrix:
             for j, c in enumerate(other.getColumns()):
                 ret.vals[i].vals[j] = dot(r, c)
         return ret
-    def getE(_, iterations=5):
+    def getE(_, ):
         c = deepcopy(_)
-        for i in range(iterations):
-            c.RREF() #hopefully this works lmfao
+        c.RREF() #hopefully this works lmfao
         ret = Matrix.identity(c.height)
         for o in reversed(c.operations):
             other = Matrix.identity(c.height)
             other.operation(o)
             ret = ret.multiply(other)
+            
         return ret
     def getInverse(_, iterations=5):
         if not _.isInversible(iterations):return -1
@@ -162,7 +227,7 @@ class Matrix:
         for r in range(_.height):
             for v in range(_.length):
                 _.vals[r][v] = round(_.vals[r][v], 16)
-    def getTransverse(_):
+    def getTranspose(_):
         ret = Matrix(_.length, _.height)
         for i in range(_.length):
             c = _.getColumn(i)
@@ -170,16 +235,40 @@ class Matrix:
             ret.setRow(i, c)
         return ret
     def getRightInverse(_):
-        return _.getTransverse().multiply((_.multiply(_.getTransverse())).getInverse())
+        return _.getTranspose().multiply((_.multiply(_.getTranspose())).getInverse())
     def getLeftInverse(_):
-        return (_.getTransverse().multiply(_)).getInverse().multiply(_.getTransverse())
-def dot(v1 ,v2): return sum(map(lambda x: x[0] * x[1], zip(v1, v2)))
+        return (_.getTranspose().multiply(_)).getInverse().multiply(_.getTranspose())
+    def getRowSpaceBasis(_):
+        ret = []
+        c = deepcopy(_)
+        c.RREF()
+        for r in c.vals:
+            if not r.isZero(): ret.append(r)
+        return ret
+    def getColumnSpaceBases(_):
+        c = deepcopy(_)
+        c = c.getTranspose()
+        c.RREF()
+        ret = []
+        for r in c.vals:
+            if not r.isZero(): ret.append(r)
+        return ret
+def dot(v1 ,v2): return sum(map(lambda x: x[0] * x[1], zip(v1, v2)), start=Frac(0))
 
-a = Matrix(3, 2)
-a.setRow(0, Row([1, 2]))
-a.setRow(1, Row([0, -1]))
-a.setRow(2, Row([1, 1]))
-a.RREF()
-#al = a.getLeftInverse()
+a = Matrix.fromRows([
+    Row([2, -1, 1]),
+    Row([2, 0, 2]),
+    Row([-2, 3, 1]),
+    Row([-3, 4, 1])
+    ])
 print(a)
+#a.RREF()
+#al = a.getLeftInverse()
+#print(a)
+E = a.getE()
+#a.RREF()
+#print(a)
+
+print(E)
+print(E.multiply(a))
 #print("\n", al.multiply(a))
