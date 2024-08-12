@@ -234,6 +234,8 @@ class Matrix:
         for r in range(_.height):
             for v in range(_.length):
                 _.vals[r][v] = round(_.vals[r][v], 16)
+    def getRank(_):
+        return reduce(lambda acc, a: acc + int(a.isZero()), _.vals, 0)
     def getTranspose(_):
         ret = Matrix(_.length, _.height)
         for i in range(_.length):
@@ -271,11 +273,18 @@ class Matrix:
     def getNullSpaceBasis(_):
         c = deepcopy(_)
         c.RREF()
-        def isPivotColumn(c:Row):
+        def isPivotColumn(i, c:Row):
             c1 = c.vals.count(Frac(1))
             c0 = c.vals.count(Frac(0))
-            return c1 == 1 and c1 + c0 == len(c.vals)
-        freeVars = [i for i in range(c.length) if not isPivotColumn(c.getColumn(i))]
+            return c1 == 1 and c1 + c0 == len(c.vals) and c.pivotIdx() >= i
+        freeVars = []
+        expected = 0
+        for i in range(c.length):
+            if not isPivotColumn(expected, c.getColumn(i)):
+                freeVars.append(i)
+            else:
+                expected += 1
+        print(freeVars)
         ret = Matrix(c.length, c.length)
         idx = 0
         for i in range(c.length):
@@ -291,14 +300,11 @@ class Matrix:
 def dot(v1 ,v2): return sum(map(lambda x: x[0] * x[1], zip(v1, v2)), start=Frac(0))
 
 a = Matrix.fromRows([
-    Row([-3, 6, -1, 1, -7]),
-    Row([1, -2, 2, 3, -1]),
-    Row([2, -4, 5, 8, -4])
+    Row([0, 1, 0]),
+    Row([0, 0, 0]),
+    Row([0, 0, 0])
     ])
-#print(a)
 print(a.getNullSpaceBasis())
-#a.RREF()
-#print(a)
 #print("A:", a, sep="\n")
 #print("Row:", Matrix.fromRows(a.getRowSpaceBasis()).getTranspose(), sep="\n")
 #print("Column:", Matrix.fromRows(a.getColumnSpaceBasis()).getTranspose(), sep="\n")
