@@ -284,7 +284,6 @@ class Matrix:
                 freeVars.append(i)
             else:
                 expected += 1
-        print(freeVars)
         ret = Matrix(c.length, c.length)
         idx = 0
         for i in range(c.length):
@@ -299,14 +298,19 @@ class Matrix:
 
 def dot(v1 ,v2): return sum(map(lambda x: x[0] * x[1], zip(v1, v2)), start=Frac(0))
 
-a = Matrix.fromRows([
-    Row([0, 1, 0]),
-    Row([0, 0, 0]),
-    Row([0, 0, 0])
-    ])
-print(a.getNullSpaceBasis())
-#print("A:", a, sep="\n")
-#print("Row:", Matrix.fromRows(a.getRowSpaceBasis()).getTranspose(), sep="\n")
-#print("Column:", Matrix.fromRows(a.getColumnSpaceBasis()).getTranspose(), sep="\n")
-#print("Null:", Matrix.fromRows(a.getNullSpaceBasis()).getTranspose(), sep="\n")
-#print("Null Transpose:", Matrix.fromRows(a.getNullTransposeSpaceBasis()).getTranspose(), sep="\n")
+class Basis:
+    def __init__(_, vectors):
+        _.vectors = vectors
+    def orthogonal(_):
+        ret = [_.vectors[0]]
+        for i in range(1, len(_.vectors)):
+            sumTerms = [ret[j] * (dot(_.vectors[i], ret[j]) / dot(ret[j], ret[j])) for j in range(i)]
+            s = reduce( lambda acc, a: acc + a, sumTerms, _.vectors[0] * Frac(0))
+            ret.append(_.vectors[i] - s)
+        return ret
+    def subspaceProjection(_, b:Row):
+        V = _.orthogonal()
+        sumTerms = [V[i] * (dot(b, V[i]) / dot(V[i], V[i])) for i in range(len(_.vectors))]
+        return reduce( lambda acc, a: acc + a, sumTerms, _.vectors[0] * Frac(0))
+b = Basis([Row([-1, 0, 1]), Row([0, -1, 1])])
+print(b.subspaceProjection(Row([2, 1, 1])))
