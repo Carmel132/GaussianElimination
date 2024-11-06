@@ -215,20 +215,18 @@ class Matrix:
             other.operation(o)
             ret = ret.multiply(other)
         return ret
-    def getInverse(_, iterations=5):
-        if not _.isInversible(iterations):return -1
+    def getInverse(_):
+        if not _.isInversible():return -1
         c = deepcopy(_)
-        for i in range(iterations):
-            c.RREF()
+        c.RREF()
         ret = Matrix.identity(c.height)
         for o in c.operations:
             ret.operation(o)
         return ret
-    def isInversible(_, iterations = 5):
+    def isInversible(_):
         if _.height != _.length: return False
         c = deepcopy(_)
-        for i in range(iterations):
-            c.RREF()
+        c.RREF()
         return c.vals == Matrix.identity(c.height).vals
     def round(_): # rounds to nearest 10^-16
         for r in range(_.height):
@@ -240,7 +238,7 @@ class Matrix:
         ret = Matrix(_.length, _.height)
         for i in range(_.length):
             c = _.getColumn(i)
-            c.vals = list(reversed(c.vals))
+            c.vals = list((c.vals))
             ret.setRow(i, c)
         return ret
     def getRightInverse(_):
@@ -295,7 +293,19 @@ class Matrix:
                 ret.setRow(i, -row)
                 idx += 1
         return list(filter(lambda x: not x.isZero(), ret.getColumns()))
-
+    def determinant(_):
+        c = deepcopy(_)
+        c.EF()
+        ret = Frac(1)
+        for op in c.operations:
+            if op.type == Operations.SCALE:
+                ret = ret / op.x2
+            elif op.type == Operations.SWAP:
+                ret = -ret
+        for i in range(c.length):
+            ret *= c.vals[i].vals[i]
+        return ret
+        
 def dot(v1 ,v2): return sum(map(lambda x: x[0] * x[1], zip(v1, v2)), start=Frac(0))
 
 class Basis:
@@ -312,5 +322,11 @@ class Basis:
         V = _.orthogonal()
         sumTerms = [V[i] * (dot(b, V[i]) / dot(V[i], V[i])) for i in range(len(_.vectors))]
         return reduce( lambda acc, a: acc + a, sumTerms, _.vectors[0] * Frac(0))
-b = Basis([Row([-1, 0, 1]), Row([0, -1, 1])])
-print(b.subspaceProjection(Row([2, 1, 1])))
+
+
+m = Matrix.fromRows([
+    Row([7, -4, 2]),
+    Row([3, 1, -5]),
+    Row([2, 2, -5])   
+])
+print(m.determinant()) # Should return 23
