@@ -199,6 +199,16 @@ class Matrix:
             for j, c in enumerate(other.getColumns()):
                 ret.vals[i].vals[j] = dot(r, c)
         return ret
+    def multiplyColumnVector(_, x:Row):
+        ret = []
+        for i in range(_.height):
+            ret.append(dot(x, _.getRow(i)))
+        return Row(ret)
+    def multiplyRowVector(_, x:Row):
+        ret = []
+        for i in range(_.length):
+            ret.append(dot(x, _.getColumn(i)))
+        return Row(ret)
     def getE(_):
         c = deepcopy(_)
         c.RREF() #hopefully this works lmfao
@@ -293,7 +303,7 @@ class Matrix:
                 ret.setRow(i, -row)
                 idx += 1
         return list(filter(lambda x: not x.isZero(), ret.getColumns()))
-    def determinant(_):
+    def getDeterminant(_):
         c = deepcopy(_)
         c.EF()
         ret = Frac(1)
@@ -305,12 +315,14 @@ class Matrix:
         for i in range(c.length):
             ret *= c.vals[i].vals[i]
         return ret
-        
+    def getNullity(_):
+        return _.height - _.getRank()
 def dot(v1 ,v2): return sum(map(lambda x: x[0] * x[1], zip(v1, v2)), start=Frac(0))
 
-class Basis:
+class Subspace:
     def __init__(_, vectors):
         _.vectors = vectors
+        _.mat = Matrix.fromRows(vectors).getTranspose()
     def orthogonal(_):
         ret = [_.vectors[0]]
         for i in range(1, len(_.vectors)):
@@ -322,6 +334,13 @@ class Basis:
         V = _.orthogonal()
         sumTerms = [V[i] * (dot(b, V[i]) / dot(V[i], V[i])) for i in range(len(_.vectors))]
         return reduce( lambda acc, a: acc + a, sumTerms, _.vectors[0] * Frac(0))
+    def isLinearlyIndependent(_):
+        return _.mat.getRank() == _.mat.height
+    def __contains__(_, vec:Row):
+        return Matrix.fromRows([*_.vectors, vec]).getRank() == _.mat.getRank()
+    def getDim(_):
+        return _.mat.getRank()
+    
 
 
 m = Matrix.fromRows([
@@ -329,4 +348,4 @@ m = Matrix.fromRows([
     Row([3, 1, -5]),
     Row([2, 2, -5])   
 ])
-print(m.determinant()) # Should return 23
+print(m.getDeterminant()) # Should return 23
