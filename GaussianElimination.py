@@ -81,7 +81,7 @@ class Operation:
 
 class Row:
     def __init__(_, _vals:list[float]):
-        _.vals = list(map(Frac.fromFloat, _vals))
+        _.vals = list(map(Frac.fromFloat, _vals)) if not isinstance(_vals, Row) else _vals
     def __mul__(_, k:Frac):
         return Row([x * k for x in _.vals])
     def __truediv__(_, k:Frac):
@@ -146,15 +146,19 @@ class Matrix:
     def getRow(_, i):
         return _.vals[i]
     @staticmethod
-    def fromRows(rs):
+    def fromRows(*rs):
+        print("rs: ", rs)
         ret = Matrix(len(rs), len(rs[0]))
         for i, r in enumerate(rs):
-            ret.setRow(i, r)
+            ret.setRow(i, Row(r))
         return ret
+    @staticmethod
+    def fromColumns(*cs):
+        return Matrix.fromRows(*cs).getTranspose()
     def order(_):
         _.vals = sorted(_.vals, key=lambda x: _.height + 1 if x.isZero() else x.pivotIdx())
-    def RREF(_):
-        _.EF()
+    def ReducedEchelonForm(_):
+        _.EchelonForm()
         for i in range(min(_.height, _.length)):
             r = _.getRow(i)
             if r.isZero():continue
@@ -163,7 +167,7 @@ class Matrix:
             for j in range(_.height):
                 if i == j: continue
                 _.add(j, i, -_.getRow(j)[p])
-    def EF(_):
+    def EchelonForm(_):
         h = 0
         k = 0
         while h < _.height and k < _.length:
@@ -211,7 +215,7 @@ class Matrix:
         return Row(ret)
     def getE(_):
         c = deepcopy(_)
-        c.RREF() #hopefully this works lmfao
+        c.ReducedEchelonForm() #hopefully this works lmfao
         ret = Matrix.identity(c.height)
         for o in reversed(c.operations):
             other = Matrix.identity(c.height)
@@ -228,7 +232,7 @@ class Matrix:
     def getInverse(_):
         if not _.isInversible():return -1
         c = deepcopy(_)
-        c.RREF()
+        c.ReducedEchelonForm()
         ret = Matrix.identity(c.height)
         for o in c.operations:
             ret.operation(o)
@@ -236,7 +240,7 @@ class Matrix:
     def isInversible(_):
         if _.height != _.length: return False
         c = deepcopy(_)
-        c.RREF()
+        c.ReducedEchelonForm()
         return c.vals == Matrix.identity(c.height).vals
     def round(_): # rounds to nearest 10^-16
         for r in range(_.height):
@@ -258,21 +262,21 @@ class Matrix:
     def getRowSpaceBasis(_):
         ret = []
         c = deepcopy(_)
-        c.RREF()
+        c.ReducedEchelonForm()
         for r in c.vals:
             if not r.isZero(): ret.append(r)
         return ret
     def getColumnSpaceBasis(_):
         c = deepcopy(_)
         c = c.getTranspose().getTranspose().getTranspose()
-        c.RREF()
+        c.ReducedEchelonForm()
         ret = []
         for r in c.vals:
             if not r.isZero(): ret.append(r)
         return ret
     def getNullTransposeSpaceBasis(_):
         c = deepcopy(_)
-        c.EF()
+        c.EchelonForm()
         e = c.E()
         ret = []
         for i, r in enumerate(c.vals):
@@ -280,7 +284,7 @@ class Matrix:
         return ret
     def getNullSpaceBasis(_):
         c = deepcopy(_)
-        c.RREF()
+        c.ReducedEchelonForm()
         def isPivotColumn(i, c:Row):
             c1 = c.vals.count(Frac(1))
             c0 = c.vals.count(Frac(0))
@@ -305,7 +309,7 @@ class Matrix:
         return list(filter(lambda x: not x.isZero(), ret.getColumns()))
     def getDeterminant(_):
         c = deepcopy(_)
-        c.EF()
+        c.EchelonForm()
         ret = Frac(1)
         for op in c.operations:
             if op.type == Operations.SCALE:
@@ -317,12 +321,17 @@ class Matrix:
         return ret
     def getNullity(_):
         return _.height - _.getRank()
+    def changeBasis(_, sub):
+        return sub.mat.getInverse().multiply(_.respectToBasis(sub)).multiply(sub.mat)
+    def respectToBasis(_, sub):
+        return Matrix.fromColumns(*list(map(_.multiplyColumnVector, sub.vectors)))
+
 def dot(v1 ,v2): return sum(map(lambda x: x[0] * x[1], zip(v1, v2)), start=Frac(0))
 
 class Subspace:
-    def __init__(_, vectors):
-        _.vectors = vectors
-        _.mat = Matrix.fromRows(vectors).getTranspose()
+    def __init__(_, *vectors):
+        _.vectors = [Row(vector) for vector in vectors]
+        _.mat = Matrix.fromColumns(*vectors)
     def orthogonal(_):
         ret = [_.vectors[0]]
         for i in range(1, len(_.vectors)):
@@ -341,11 +350,14 @@ class Subspace:
     def getDim(_):
         return _.mat.getRank()
     
+b = Subspace(
+    [2, 3],
+    [1, 2]
+)
 
+t = Matrix.fromColumns(
+    [1, 2],
+    [5, -2]
+)
 
-m = Matrix.fromRows([
-    Row([7, -4, 2]),
-    Row([3, 1, -5]),
-    Row([2, 2, -5])   
-])
-print(m.getDeterminant()) # Should return 23
+print(t.changeBasis(b))
