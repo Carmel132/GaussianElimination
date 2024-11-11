@@ -147,7 +147,6 @@ class Matrix:
         return _.vals[i]
     @staticmethod
     def fromRows(*rs):
-        print("rs: ", rs)
         ret = Matrix(len(rs), len(rs[0]))
         for i, r in enumerate(rs):
             ret.setRow(i, Row(r))
@@ -321,9 +320,10 @@ class Matrix:
         return ret
     def getNullity(_):
         return _.height - _.getRank()
-    def changeBasis(_, sub):
-        return sub.mat.getInverse().multiply(_.respectToBasis(sub)).multiply(sub.mat)
-    def respectToBasis(_, sub):
+    def changeBasis(_, old, new):
+        p = old.changeBasisMatrix(new)
+        return p.getInverse().multiply(_).multiply(p)
+    def respectToBasis(_, sub): # Moves out of standard basis (should be faster)
         return Matrix.fromColumns(*list(map(_.multiplyColumnVector, sub.vectors)))
 
 def dot(v1 ,v2): return sum(map(lambda x: x[0] * x[1], zip(v1, v2)), start=Frac(0))
@@ -349,15 +349,10 @@ class Subspace:
         return Matrix.fromRows([*_.vectors, vec]).getRank() == _.mat.getRank()
     def getDim(_):
         return _.mat.getRank()
-    
-b = Subspace(
-    [2, 3],
-    [1, 2]
-)
-
-t = Matrix.fromColumns(
-    [1, 2],
-    [5, -2]
-)
-
-print(t.changeBasis(b))
+    @staticmethod
+    def standard(n):
+        return Subspace(*Matrix.identity(n).vals)
+    def __repr__(_):
+        return _.mat.__repr__()
+    def changeBasisMatrix(_, new):
+        return  _.mat.getInverse().multiply(new.mat).getInverse()
